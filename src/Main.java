@@ -12,7 +12,33 @@ import java.util.List;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
-public class NewsExtractor {
+public class Main {
+
+    public static void main(String[] args) throws IOException {
+        BufferedReader reader = new BufferedReader(new InputStreamReader(System.in));
+        //https://www.thesaigontimes.vn/td/295811/chu-so-huu-mon-hue-khai-tu-cua-hang-bien-mat-tren-mang.html
+        String url = "";
+
+        while(!"exit".equalsIgnoreCase(url)) {
+            System.out.println("Please enter the thesaigontimes news url or \"exit\" to quit:");
+            url = reader.readLine();
+            if (!url.isBlank() && !"exit".equalsIgnoreCase(url)) {
+                if (url.startsWith("https://www.thesaigontimes.vn/")) {
+                    System.out.println("Loading...");
+                    NewsExtractor newsExtractor = new NewsExtractor();
+                    newsExtractor.getPageLinks(url);
+                    newsExtractor.getNewsInfo();
+                    newsExtractor.exportCsv("NewsExported.csv");
+                    System.out.println("Done to export to file NewsExported.csv");
+                } else {
+                    System.out.println("Invalid url.");
+                }
+            }
+        }
+    }
+}
+
+class NewsExtractor {
     private HashSet<String> urls;
     private List<List<String>> articles;
 
@@ -29,7 +55,7 @@ public class NewsExtractor {
             Elements links = doc.select("a[href]");
             String newsUrlPatternString = "^(\\/)([0-9]+)(\\/)([A-Za-z0-9]+-)*[A-Za-z0-9]+\\.html$";
             Pattern newsUrlPattern = Pattern.compile(newsUrlPatternString);
-
+            urls.add(url);
             for (Element link : links) {
                 //System.out.println(link.attr("href"));
 
@@ -39,7 +65,6 @@ public class NewsExtractor {
                     urls.add(link.absUrl("href"));
                 }
             }
-            urls.add(url);
         } catch (IOException e) {
             System.err.println(e.getMessage());
             e.printStackTrace();
@@ -56,10 +81,15 @@ public class NewsExtractor {
                 Connection.Response execute = Jsoup.connect(url).execute();
                 doc = Jsoup.parse(execute.body());
                 //doc = Jsoup.connect(url).userAgent("Mozilla").get();
+
                 Element title = doc.selectFirst("span.Title");
                 newInfos.add(title.text());
+
                 Element author = doc.selectFirst("span.ReferenceSourceTG");
                 newInfos.add(author.text());
+
+                Element date = doc.selectFirst("span.Date");
+                newInfos.add(date.text().substring(date.text().indexOf(", ")+2, date.text().length()));
             } catch (IOException e) {
                 System.err.println(e.getMessage());
                 e.printStackTrace();
@@ -70,7 +100,7 @@ public class NewsExtractor {
 
     public void exportCsv(String csvFile) {
         try {
-            String header = "URL,Title,Author";
+            String header = "URL,Title,Author,Date";
             OutputStreamWriter writer = new OutputStreamWriter(new FileOutputStream(csvFile), StandardCharsets.UTF_8);
             writer.append("\uFEFF");
             writer.append(header);
@@ -109,26 +139,5 @@ public class NewsExtractor {
             escapedData = "\"" + data + "\"";
         }
         return escapedData;
-    }
-
-    public static void main(String[] args) throws IOException {
-        BufferedReader reader = new BufferedReader(new InputStreamReader(System.in));
-        //"https://www.thesaigontimes.vn/td/295811/chu-so-huu-mon-hue-khai-tu-cua-hang-bien-mat-tren-mang.html"
-        String url = "";
-
-        while(!"exit".equalsIgnoreCase(url)) {
-            System.out.println("Please enter the thesaigontimes news url or \"exit\" to quit:");
-            url = reader.readLine();
-            if (!url.isBlank() && !"exit".equalsIgnoreCase(url)) {
-                if (url.startsWith("https://www.thesaigontimes.vn/")) {
-                    NewsExtractor newsExtractor = new NewsExtractor();
-                    newsExtractor.getPageLinks(url);
-                    newsExtractor.getNewsInfo();
-                    newsExtractor.exportCsv("NewsExported.csv");
-                } else {
-                    System.out.println("Invalid url.");
-                }
-            }
-        }
     }
 }
